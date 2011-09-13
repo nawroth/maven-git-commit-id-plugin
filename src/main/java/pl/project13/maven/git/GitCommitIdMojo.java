@@ -20,6 +20,8 @@ package pl.project13.maven.git;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.project.MavenProject;
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.Repository;
@@ -44,7 +46,7 @@ import java.util.Properties;
  * @requiresProject
  * @since 1.0
  */
-@SuppressWarnings({"JavaDoc"})
+@SuppressWarnings( { "javadoc" } )
 public class GitCommitIdMojo extends AbstractMojo {
 
   private static final int DEFAULT_COMMIT_ABBREV_LENGTH = 7;
@@ -53,6 +55,7 @@ public class GitCommitIdMojo extends AbstractMojo {
   public final String BRANCH               = "branch";
   public final String COMMIT_ID            = "commit.id";
   public final String COMMIT_ID_ABBREV     = "commit.id.abbrev";
+  public final String COMMIT_ID_MODIFIED   = "commit.id.modified";
   public final String BUILD_AUTHOR_NAME    = "build.user.name";
   public final String BUILD_AUTHOR_EMAIL   = "build.user.email";
   public final String BUILD_TIME           = "build.time";
@@ -87,7 +90,6 @@ public class GitCommitIdMojo extends AbstractMojo {
    * @parameter default-value="false"
    */
   private boolean generateGitPropertiesFile;
-
   /**
    * Decide where to generate the git.properties file. By default, the src/main/resources/git.properties
    * file will be updated - of course you must first set generateGitPropertiesFile = true to force git-commit-id
@@ -284,6 +286,24 @@ public class GitCommitIdMojo extends AbstractMojo {
       Date commitDate = new Date(timeSinceEpoch * 1000); // git is "by sec" and java is "by ms"
       SimpleDateFormat smf = new SimpleDateFormat(dateFormat);
       put(properties, prefixDot + COMMIT_TIME, smf.format(commitDate));
+
+      String modified = "mod";
+      if (git.isBare()) {
+          modified = "bar";
+      }
+      else {
+          Git gt = Git.wrap( git );
+          Status status = gt.status().call();
+          // still doesn't check for commits not yet pushed
+          if (status.getAdded().isEmpty() && status.getChanged().isEmpty() && status.getMissing().isEmpty()
+                  && status.getModified().isEmpty() && status.getUntracked().isEmpty() && status.getConflicting().isEmpty()
+                  && status.getRemoved().isEmpty()) {
+              modified = "";
+          }
+      }
+
+      // git.commit.id.long
+      put(properties, prefixDot + COMMIT_ID_MODIFIED, headCommit.getName() + modified);
     } finally {
       revWalk.dispose();
     }
